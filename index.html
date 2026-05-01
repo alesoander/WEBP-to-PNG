@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WEBP → JPG Converter</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --accent: #4f8ef7;
+      --accent-hover: #6ba3ff;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --border: #2d3148;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem 4rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    header h1 {
+      font-size: clamp(1.8rem, 5vw, 2.8rem);
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.5px;
+    }
+    header p {
+      margin-top: 0.5rem;
+      color: var(--text-muted);
+      font-size: 1rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      width: 100%;
+      max-width: 700px;
+    }
+
+    /* Drop zone */
+    #drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+    #drop-zone:hover,
+    #drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(79, 142, 247, 0.05);
+    }
+    #drop-zone svg {
+      width: 48px;
+      height: 48px;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+    #drop-zone h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+    }
+    #drop-zone p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    #drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Options */
+    .options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-top: 1.5rem;
+      align-items: center;
+    }
+    .option-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      flex: 1;
+      min-width: 160px;
+    }
+    .option-group label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .option-group select,
+    .option-group input[type="range"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 0.5rem 0.75rem;
+      font-size: 0.9rem;
+      outline: none;
+      width: 100%;
+    }
+    .option-group select:focus {
+      border-color: var(--accent);
+    }
+    #quality-val {
+      font-size: 0.85rem;
+      color: var(--accent);
+      font-weight: 700;
+      min-width: 3ch;
+    }
+    .quality-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* File list */
+    #file-list-section {
+      margin-top: 1.5rem;
+      display: none;
+    }
+    #file-list-section h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      color: var(--text-muted);
+    }
+    #file-list {
+      list-style: none;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface2);
+    }
+    #file-list li {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.85rem;
+      border-bottom: 1px solid var(--border);
+    }
+    #file-list li:last-child { border-bottom: none; }
+    #file-list li .status {
+      margin-left: auto;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.15rem 0.5rem;
+      border-radius: 100px;
+    }
+    .status.pending  { background: rgba(148,163,184,0.15); color: var(--text-muted); }
+    .status.done     { background: rgba(52,211,153,0.15);  color: var(--success); }
+    .status.error    { background: rgba(248,113,113,0.15); color: var(--danger); }
+    .status.skipped  { background: rgba(251,191,36,0.15);  color: var(--warning); }
+
+    /* Progress */
+    #progress-section {
+      margin-top: 1.5rem;
+      display: none;
+    }
+    #progress-bar-wrap {
+      background: var(--surface2);
+      border-radius: 100px;
+      height: 8px;
+      overflow: hidden;
+    }
+    #progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #a78bfa);
+      border-radius: 100px;
+      transition: width 0.2s;
+      width: 0%;
+    }
+    #progress-text {
+      margin-top: 0.4rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-align: right;
+    }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 0.65rem 1.4rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .btn-success {
+      background: var(--success);
+      color: #0f1117;
+    }
+    .btn-success:hover:not(:disabled) { filter: brightness(1.1); }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem 1.2rem;
+      font-size: 0.9rem;
+      color: var(--text);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      z-index: 999;
+      max-width: 300px;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+
+    /* Footer */
+    footer {
+      margin-top: 3rem;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      text-align: center;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    canvas { display: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>WEBP → JPG Converter</h1>
+  <p>Upload a folder of WEBP images and download them all as JPG — no server, 100% in your browser.</p>
+</header>
+
+<div class="card">
+  <!-- Drop zone -->
+  <div id="drop-zone">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h2>Drop a folder here or click to browse</h2>
+    <p>Select a folder — all WEBP images inside will be converted to JPG</p>
+    <input type="file" id="folder-input" webkitdirectory multiple accept="image/*" />
+  </div>
+
+  <!-- Options -->
+  <div class="options">
+    <div class="option-group">
+      <label>JPG quality</label>
+      <div class="quality-row">
+        <input type="range" id="quality" min="10" max="100" value="90" step="1" />
+        <span id="quality-val">90%</span>
+      </div>
+    </div>
+    <div class="option-group">
+      <label>Non-WEBP files</label>
+      <select id="non-webp-mode">
+        <option value="convert">Convert if possible</option>
+        <option value="skip">Skip (WEBP only)</option>
+        <option value="copy">Include as-is</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- File list -->
+  <div id="file-list-section">
+    <h3 id="file-list-title">Files selected</h3>
+    <ul id="file-list"></ul>
+  </div>
+
+  <!-- Progress -->
+  <div id="progress-section">
+    <div id="progress-bar-wrap">
+      <div id="progress-bar"></div>
+    </div>
+    <div id="progress-text">0 / 0</div>
+  </div>
+
+  <!-- Buttons -->
+  <div class="btn-row">
+    <button class="btn btn-primary" id="btn-convert" disabled>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Convert &amp; Download ZIP
+    </button>
+    <button class="btn btn-secondary" id="btn-clear" disabled>Clear</button>
+  </div>
+</div>
+
+<canvas id="canvas"></canvas>
+<div id="toast"></div>
+
+<footer>
+  All processing happens locally in your browser — no images are uploaded to any server.<br/>
+  <a href="https://github.com/alesoander/WEBP-to-PNG" target="_blank" rel="noopener">View on GitHub</a>
+</footer>
+
+<!-- JSZip via CDN (SRI hash for integrity) -->
+<script
+  src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+  integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg=="
+  crossorigin="anonymous"
+  referrerpolicy="no-referrer">
+</script>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Elements ───────────────────────────────────────────────
+  const dropZone        = document.getElementById('drop-zone');
+  const folderInput     = document.getElementById('folder-input');
+  const qualitySlider   = document.getElementById('quality');
+  const qualityVal      = document.getElementById('quality-val');
+  const nonWebpMode     = document.getElementById('non-webp-mode');
+  const fileListSection = document.getElementById('file-list-section');
+  const fileListTitle   = document.getElementById('file-list-title');
+  const fileList        = document.getElementById('file-list');
+  const progressSection = document.getElementById('progress-section');
+  const progressBar     = document.getElementById('progress-bar');
+  const progressText    = document.getElementById('progress-text');
+  const btnConvert      = document.getElementById('btn-convert');
+  const btnClear        = document.getElementById('btn-clear');
+  const canvas          = document.getElementById('canvas');
+  const ctx             = canvas.getContext('2d');
+  const toast           = document.getElementById('toast');
+
+  // ── State ──────────────────────────────────────────────────
+  let selectedFiles = [];   // Array of File objects
+  let converting    = false;
+
+  // ── Quality slider ─────────────────────────────────────────
+  qualitySlider.addEventListener('input', () => {
+    qualityVal.textContent = qualitySlider.value + '%';
+  });
+
+  // ── Drag & drop ────────────────────────────────────────────
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    // Drag & drop of directories needs DataTransferItemList with webkitGetAsEntry
+    handleDropItems(e.dataTransfer.items);
+  });
+
+  // ── File input change ──────────────────────────────────────
+  folderInput.addEventListener('change', () => {
+    handleFiles(Array.from(folderInput.files));
+    // Reset so the same folder can be re-selected
+    folderInput.value = '';
+  });
+
+  // ── Drag-drop entry traversal ──────────────────────────────
+  async function handleDropItems(items) {
+    const files = [];
+    const promises = [];
+    for (const item of items) {
+      const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+      if (entry) {
+        promises.push(traverseEntry(entry, files));
+      } else {
+        const f = item.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+    await Promise.all(promises);
+    handleFiles(files);
+  }
+
+  function traverseEntry(entry, files) {
+    return new Promise((resolve) => {
+      if (entry.isFile) {
+        entry.file((f) => { files.push(f); resolve(); });
+      } else if (entry.isDirectory) {
+        const reader = entry.createReader();
+        const readAll = (cb) => {
+          let allEntries = [];
+          const readBatch = () => {
+            reader.readEntries((batch) => {
+              if (batch.length === 0) return cb(allEntries);
+              allEntries = allEntries.concat(Array.from(batch));
+              readBatch();
+            });
+          };
+          readBatch();
+        };
+        readAll((entries) => {
+          const sub = entries.map((e) => traverseEntry(e, files));
+          Promise.all(sub).then(resolve);
+        });
+      } else {
+        resolve();
+      }
+    });
+  }
+
+  // ── Handle file list ───────────────────────────────────────
+  function handleFiles(files) {
+    if (files.length === 0) return;
+    selectedFiles = files;
+    renderFileList();
+    btnConvert.disabled = false;
+    btnClear.disabled   = false;
+  }
+
+  function renderFileList() {
+    fileList.innerHTML = '';
+    const mode    = nonWebpMode.value;
+    let visible   = 0;
+
+    for (const file of selectedFiles) {
+      const isWebp   = isWebpFile(file);
+      const isImage  = file.type.startsWith('image/');
+      const willSkip = !isWebp && mode === 'skip';
+      const willConv = isWebp || (isImage && mode === 'convert');
+
+      if (willSkip && !isWebp) {
+        continue; // Don't list skipped non-image files at all
+      }
+
+      visible++;
+      const li     = document.createElement('li');
+      const name   = document.createElement('span');
+      name.textContent = file.webkitRelativePath || file.name;
+      name.style.overflow = 'hidden';
+      name.style.textOverflow = 'ellipsis';
+      name.style.whiteSpace = 'nowrap';
+      name.style.flex = '1';
+
+      const badge  = document.createElement('span');
+      badge.className = 'status pending';
+      badge.textContent = isWebp ? 'WEBP→JPG' : (willConv ? 'img→JPG' : 'copy');
+      badge.dataset.id = file.webkitRelativePath || file.name;
+
+      li.appendChild(name);
+      li.appendChild(badge);
+      fileList.appendChild(li);
+    }
+
+    const webpCount = selectedFiles.filter(isWebpFile).length;
+    fileListTitle.textContent = `${visible} file(s) selected — ${webpCount} WEBP`;
+    fileListSection.style.display = 'block';
+  }
+
+  function isWebpFile(file) {
+    return file.type === 'image/webp' ||
+           file.name.toLowerCase().endsWith('.webp');
+  }
+
+  // ── Clear ──────────────────────────────────────────────────
+  btnClear.addEventListener('click', reset);
+
+  function reset() {
+    selectedFiles = [];
+    fileList.innerHTML = '';
+    fileListSection.style.display = 'none';
+    progressSection.style.display = 'none';
+    progressBar.style.width = '0%';
+    btnConvert.disabled = true;
+    btnClear.disabled   = true;
+  }
+
+  // ── Convert ────────────────────────────────────────────────
+  btnConvert.addEventListener('click', startConversion);
+
+  async function startConversion() {
+    if (converting || selectedFiles.length === 0) return;
+    converting = true;
+    btnConvert.disabled = true;
+    btnClear.disabled   = true;
+
+    const quality = parseInt(qualitySlider.value, 10) / 100;
+    const mode    = nonWebpMode.value;
+    const zip     = new JSZip();
+
+    // Collect all files that should be processed
+    const tasks = selectedFiles.filter((file) => {
+      if (isWebpFile(file)) return true;
+      if (mode === 'skip') return false;
+      return true;
+    });
+
+    progressSection.style.display = 'block';
+    progressBar.style.width = '0%';
+    progressText.textContent = `0 / ${tasks.length}`;
+
+    let done = 0;
+
+    for (const file of tasks) {
+      const relativePath = file.webkitRelativePath || file.name;
+      const isWebp       = isWebpFile(file);
+      const isImage      = file.type.startsWith('image/');
+      const shouldConv   = isWebp || (isImage && mode === 'convert');
+
+      const badgeEl = fileList.querySelector(`[data-id="${CSS.escape(relativePath)}"]`);
+
+      try {
+        if (shouldConv) {
+          const jpgBlob = await convertToJpg(file, quality);
+          const outPath = replaceExtension(relativePath, '.jpg');
+          zip.file(outPath, jpgBlob);
+          if (badgeEl) { badgeEl.className = 'status done'; badgeEl.textContent = 'done'; }
+        } else {
+          // copy
+          const buf = await file.arrayBuffer();
+          zip.file(relativePath, buf);
+          if (badgeEl) { badgeEl.className = 'status done'; badgeEl.textContent = 'copied'; }
+        }
+      } catch (err) {
+        console.error('Error converting', relativePath, err);
+        if (badgeEl) { badgeEl.className = 'status error'; badgeEl.textContent = 'error'; }
+      }
+
+      done++;
+      const pct = Math.round((done / tasks.length) * 100);
+      progressBar.style.width = pct + '%';
+      progressText.textContent = `${done} / ${tasks.length}`;
+
+      // Yield to browser so the UI updates
+      await new Promise((r) => setTimeout(r, 0));
+    }
+
+    // Generate ZIP and trigger download
+    showToast('Creating ZIP…');
+    const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+    downloadBlob(zipBlob, 'converted_images.zip');
+    showToast('✅ Download started!');
+
+    converting = false;
+    btnConvert.disabled = false;
+    btnClear.disabled   = false;
+  }
+
+  // ── Image conversion via Canvas ────────────────────────────
+  function convertToJpg(file, quality) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        canvas.width  = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Fill white background (JPG has no alpha channel)
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('Canvas toBlob returned null'));
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Failed to load image: ' + file.name));
+      };
+      img.src = url;
+    });
+  }
+
+  // ── Helpers ────────────────────────────────────────────────
+  function replaceExtension(filePath, newExt) {
+    const lastDot = filePath.lastIndexOf('.');
+    const base    = lastDot !== -1 ? filePath.slice(0, lastDot) : filePath;
+    return base + newExt;
+  }
+
+  function downloadBlob(blob, fileName) {
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href     = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  }
+
+  let toastTimer = null;
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
+  }
+
+  // Update file list when options change
+  nonWebpMode.addEventListener('change', () => {
+    if (selectedFiles.length > 0) renderFileList();
+  });
+})();
+</script>
+</body>
+</html>
