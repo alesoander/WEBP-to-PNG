@@ -546,6 +546,7 @@
     progressText.textContent = `0 / ${tasks.length}`;
 
     let done = 0;
+    let convertedCount = 0;
 
     for (const file of tasks) {
       const relativePath = file.webkitRelativePath || file.name;
@@ -558,7 +559,8 @@
       try {
         if (shouldConv) {
           const jpgBlob = await convertToJpg(file, quality);
-          const outPath = replaceExtension(relativePath, '.jpg');
+          convertedCount++;
+          const outPath = convertedCount + '.jpg';
           zip.file(outPath, jpgBlob);
           if (badgeEl) { badgeEl.className = 'status done'; badgeEl.textContent = 'done'; }
         } else {
